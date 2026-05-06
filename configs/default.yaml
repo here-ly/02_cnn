@@ -1,7 +1,7 @@
 # CIFAR-10 CNN 分类 —— 所有参数集中管理，代码零硬编码
 
 data:
-  batch_size: 32
+  batch_size: 256
   num_workers: 0
   use_augmentation: true
   test_mode: false
