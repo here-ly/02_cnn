@@ -5,7 +5,7 @@ import os
 import sys
 import subprocess
 
-REPO_URL = "https://github.com/你的用户名/02_cnn.git"
+REPO_URL = "https://github.com/here-ly/02_cnn.git"
 BRANCH = "main"
 WORKDIR = "/kaggle/working/repo"
 
