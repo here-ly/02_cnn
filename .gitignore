@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Data
+data/
+*.pt
+*.pth
+
+# Outputs
+outputs/
+information_image/
+
+# Kaggle
+kaggle_logs/
+
+# Environment
+.env
+.venv/
+*.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Wandb
+wandb/
+
+# OS
+.DS_Store
+Thumbs.db

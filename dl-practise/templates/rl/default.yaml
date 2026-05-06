@@ -1,0 +1,29 @@
+env:
+  penalty_invalid: -1
+
+agent:
+  model:
+    conv_channels: [128, 128]
+    conv_kernels: [2, 2]
+    fc_hidden: 256
+  lr: 0.001
+  gamma: 0.99
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 50000
+  target_update: 1000
+  grad_clip_norm: 10.0
+
+buffer:
+  capacity: 100000
+
+train:
+  total_steps: 200000
+  batch_size: 64
+  train_frequency: 4
+  updates_per_step: 4
+  eval_episode_interval: 50
+  n_eval_episodes: 5
+  max_episode_steps: 5000
+
+seed: 42

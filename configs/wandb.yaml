@@ -1,0 +1,5 @@
+project: "cifar10-cnn-classification"
+entity: ~
+mode: "online"              # "online" 需要稳定网络；"offline" 本地记录，训练完 wandb sync 上传
+tags: ["baseline", "simple-cnn"]
+notes: "PKU AI基础 第二课 CNN分类作业"

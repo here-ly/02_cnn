@@ -1,0 +1,47 @@
+# CIFAR-10 CNN 分类 —— 所有参数集中管理，代码零硬编码
+
+data:
+  batch_size: 32
+  num_workers: 0
+  use_augmentation: true
+  test_mode: false
+  test:
+    train_subset_size: 10000
+    test_subset_size: 2000
+
+model:
+  type: "SimpleCNN"
+  input_channels: 3
+  input_size: 32
+  num_classes: 10
+  conv_channels: [32, 64, 128]
+  conv_kernels: [3, 3, 3]
+  conv_paddings: [1, 1, 1]
+  pool_size: 2
+  fc_hidden: 256
+
+optim:
+  name: "adam"
+  lr: 0.0003
+  lr_multiplier: 1         # initial_lr = lr * lr_multiplier
+  betas: [0.9, 0.99]      # Adam β1, β2
+  eps: 1.0e-6              # 数值稳定常数
+  weight_decay: 0.0
+
+train:
+  epochs: 100
+  log_interval: 100
+  save_interval: 10              # 每 N epoch 保存 checkpoint
+  save_heatmaps: true            # false 可关闭梯度热力图防 CPU 内存压力
+  scheduler:
+    type: "ReduceLROnPlateau"   # ReduceLROnPlateau | CosineAnnealing
+    factor: 0.5                  # 触发时 LR *= factor
+    patience: 4                 # 连续 patience 个 epoch 无改善则触发
+    min_lr: 1.0e-7
+
+seed: 42
+
+output:
+  image_dir: "./information_image"
+  checkpoint_dir: "./outputs/checkpoints"
+  log_dir: "./outputs/logs"

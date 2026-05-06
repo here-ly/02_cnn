@@ -1,0 +1,3 @@
+project: "my-project"
+entity: null   # 可选：wandb team/username
+tags: []
