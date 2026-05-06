@@ -1,5 +1,5 @@
 # Kaggle Git Clone entry point
-import os, sys, subprocess, shutil
+import os, sys, subprocess, shutil, tarfile
 
 REPO_URL = "https://github.com/here-ly/02_cnn.git"
 BRANCH = "main"
@@ -40,6 +40,13 @@ if os.path.isdir(KAGGLE_DATA):
             shutil.copytree(src, dst, dirs_exist_ok=True)
         else:
             shutil.copy2(src, dst)
+    # 解压 tar.gz（torchvision 需要提取后的文件才能跳过下载）
+    for fname in os.listdir("data"):
+        if fname.endswith(".tar.gz"):
+            with tarfile.open(os.path.join("data", fname), "r:gz") as tf:
+                tf.extractall("data")
+            print("CIFAR-10 tar extracted.")
+            break
     print("CIFAR-10 data copied from Kaggle dataset.")
 else:
     print("WARNING: Kaggle dataset not found at", KAGGLE_DATA)
