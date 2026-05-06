@@ -7,7 +7,7 @@
   "is_private": false,
   "enable_gpu": true,
   "enable_internet": true,
-  "dataset_sources": ["herely/cifar10-data"],
+  "dataset_sources": ["oxcdcd/cifar10"],
   "competition_sources": [],
   "kernel_sources": [],
   "model_sources": []

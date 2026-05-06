@@ -4,7 +4,7 @@ import os, sys, subprocess, shutil, tarfile
 REPO_URL = "https://github.com/here-ly/02_cnn.git"
 BRANCH = "main"
 WORKDIR = "/kaggle/working/repo"
-KAGGLE_DATA = "/kaggle/input/cifar10-data"
+KAGGLE_DATA = "/kaggle/input/cifar10"
 
 print(f"Cloning {REPO_URL} ...")
 subprocess.run(["git", "clone", "-b", BRANCH, "--depth", "1", REPO_URL, WORKDIR], check=True)
