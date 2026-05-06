@@ -1,6 +1,4 @@
 # Kaggle Git Clone entry point
-# kaggle kernels push 后自动执行此脚本
-
 import os, sys, subprocess, shutil
 
 REPO_URL = "https://github.com/here-ly/02_cnn.git"
@@ -13,22 +11,31 @@ subprocess.run(["git", "clone", "-b", BRANCH, "--depth", "1", REPO_URL, WORKDIR]
 os.chdir(WORKDIR)
 sys.path.insert(0, WORKDIR)
 
-# ====== GPU 兼容检查（P100 需要 cu118 版 torch） ======
-import torch as _t
-if _t.cuda.is_available():
-    sm = _t.cuda.get_device_capability(0)
-    if sm < (7, 0):
-        print(f"GPU sm_{sm[0]}.{sm[1]} requires cu118 PyTorch, installing ...")
-        subprocess.run([
-            sys.executable, "-m", "pip", "install",
-            "torch", "torchvision",
-            "--index-url", "https://download.pytorch.org/whl/cu118",
-            "--quiet",
-        ])
+# ====== GPU 兼容：import torch 前用 nvidia-smi 检测 ======
+def _needs_cu118():
+    try:
+        r = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode == 0 and ("P100" in r.stdout or "K80" in r.stdout or "M60" in r.stdout):
+            return True
+    except Exception:
+        pass
+    return False
+
+if _needs_cu118():
+    print("Detected P100/K80 GPU, installing cu118 PyTorch ...")
+    subprocess.run([
+        sys.executable, "-m", "pip", "install",
+        "torch", "torchvision",
+        "--index-url", "https://download.pytorch.org/whl/cu118",
+        "--quiet",
+    ])
 
 import torch  # noqa: E402
 
-# ====== CIFAR-10 数据：从 Kaggle Dataset 复制到 data/ ======
+# ====== CIFAR-10 数据 ======
 if os.path.isdir(KAGGLE_DATA):
     os.makedirs("data", exist_ok=True)
     for fname in os.listdir(KAGGLE_DATA):
