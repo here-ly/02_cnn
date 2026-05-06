@@ -1,6 +1,6 @@
 {
-  "id": "herely/cifar10-cnn-training",
-  "title": "cifar10-cnn-training",
+"id": "herely/cifar10-cnn-train",
+"title": "cifar10-cnn-train",
   "code_file": "kernel.ipynb",
   "language": "python",
   "kernel_type": "notebook",
