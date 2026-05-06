@@ -25,13 +25,8 @@ def _needs_cu118():
     return False
 
 if _needs_cu118():
-    print("Detected P100/K80 GPU, installing cu118 PyTorch ...")
-    subprocess.run([
-        sys.executable, "-m", "pip", "install",
-        "torch", "torchvision",
-        "--index-url", "https://download.pytorch.org/whl/cu118",
-        "--quiet",
-    ])
+    print("P100/K80 GPU detected — PyTorch 2.10 not compatible, falling back to CPU.")
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import torch  # noqa: E402
 
