@@ -1,5 +1,6 @@
 # Kaggle 训练入口 — Git Clone + wandb + 真实数据
-import os, sys, subprocess, shutil, tarfile
+import os, sys, subprocess, shutil, tarfile, warnings
+warnings.filterwarnings("ignore")
 
 REPO_URL = "https://github.com/here-ly/02_cnn.git"
 BRANCH = "main"
