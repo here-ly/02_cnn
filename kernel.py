@@ -47,18 +47,32 @@ if os.path.isdir(DS_DIR):
 else:
     print("Dataset not mounted, CIFAR-10 will download automatically (~30s)")
 
-# ====== Wandb API Key（Script kernel 需用 kaggle_secrets 主动读取） ======
-try:
-    from kaggle_secrets import UserSecretsClient
-    user_secrets = UserSecretsClient()
-    secret = user_secrets.get_secret("WANDB_API_KEY")
-    if secret and len(str(secret).strip()) > 10:
-        os.environ["WANDB_API_KEY"] = str(secret).strip()
-        print("WANDB_API_KEY loaded from Kaggle Secrets")
-    else:
-        print(f"WARNING: WANDB_API_KEY empty or too short (len={len(str(secret)) if secret else 0})")
-except Exception as e:
-    print(f"WARNING: Failed to load WANDB_API_KEY from Kaggle Secrets: {type(e).__name__}: {e}")
+# ====== Wandb API Key（尝试多种方式读取） ======
+# 方式1: 直接读环境变量（Notebook kernel 自动注入）
+key = os.environ.get("WANDB_API_KEY")
+if key:
+    print("WANDB_API_KEY loaded from environment variable")
+else:
+    # 方式2: 通过 kaggle_secrets 模块（Script kernel 可能不支持）
+    try:
+        from kaggle_secrets import UserSecretsClient
+        user_secrets = UserSecretsClient()
+        key = user_secrets.get_secret("WANDB_API_KEY")
+        if key and len(str(key).strip()) > 10:
+            key = str(key).strip()
+            os.environ["WANDB_API_KEY"] = key
+            print("WANDB_API_KEY loaded from Kaggle Secrets")
+        else:
+            key = None
+            print(f"WARNING: WANDB_API_KEY empty or too short")
+    except Exception as e:
+        print(f"WARNING: kaggle_secrets failed: {type(e).__name__}: {e}")
+        # Debug: 列出所有环境变量看看有哪些可用的
+        env_keys = [k for k in sorted(os.environ.keys()) if "KAGGLE" in k.upper() or "WANDB" in k.upper() or "SECRET" in k.upper() or "KEY" in k.upper()]
+        print(f"  Relevant env vars found: {env_keys}")
+
+if not key:
+    print("WARNING: No WANDB_API_KEY found, training will run without wandb logging")
 
 # ====== 依赖 ======
 print("Installing dependencies ...")
