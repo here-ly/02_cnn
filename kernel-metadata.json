@@ -1,9 +1,9 @@
 {
-  "id": "herely/cifar10-cnn-train",
+  "id": "herely/cifar10-cnn-cli",
   "title": "cifar10-cnn-train",
-  "code_file": "kernel.ipynb",
+  "code_file": "kernel.py",
   "language": "python",
-  "kernel_type": "notebook",
+  "kernel_type": "script",
   "is_private": false,
   "enable_gpu": true,
   "enable_internet": true,
