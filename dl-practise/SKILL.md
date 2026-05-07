@@ -201,6 +201,35 @@ notebooks/*.py          src/                    scripts/train.py
 
 项目需两个文件：[`templates/shared/kernel.py`](templates/shared/kernel.py) + [`templates/shared/kernel-metadata.json`](templates/shared/kernel-metadata.json)。
 
+**硬件规格**：
+
+| 资源 | 规格 |
+|------|------|
+| GPU (T4×2) | 2× Tesla T4, 每卡 16GB VRAM, SM 7.5, 总计 32GB |
+| GPU (P100) | Tesla P100, 12GB VRAM, SM 6.0, PyTorch 2.10 不兼容 |
+| CPU | Intel Xeon @ 2.00GHz, 4 核 8 线程 |
+| RAM | 30GB |
+
+**T4 锁卡**：Kaggle GPU 随机分配 T4 或 P100，**Settings → Accelerator → GPU T4 x2 → Run** 可锁定 T4。`kernel.py` 内置 nvidia-smi 检测,遇到 P100 自动降级 CPU。
+
+**GUI 需要挂载的数据集**：
+
+| 数据集 | 用途 | 挂载后路径 |
+|--------|------|-----------|
+| `herely/{project}-data` | 训练/测试数据 | `/kaggle/input/{project}-data/` |
+| `herely/wandb-key` (私有) | WANDB_API_KEY | `/kaggle/input/wandb-key/` |
+
+GUI 操作：右侧栏 **Add Data** → 搜索数据集名 → 添加。**Settings 里 Internet 必须打开**。
+
+**Wandb 加速**：`mode: "offline"` 可避免每 epoch 上传日志的 3-5s 延迟，训练完再 `wandb sync` 上传：
+```yaml
+# configs/wandb.yaml
+mode: "offline"
+```
+```bash
+wandb sync ./wandb/offline-run-*     # 训练结束后一次性上传
+```
+
 **快速命令**：
 ```bash
 git push && kaggle kernels push -p .              # 推送
@@ -210,12 +239,13 @@ kaggle kernels output 用户名/项目名 -p ./outputs/    # 下载产物
 ```
 
 **关键约定**：
-- **Script kernel** 优于 notebook（前者 CLI 日志实时可查，后者不可靠）
-- **P100 自动降级 CPU**：`kernel.py` 用 `nvidia-smi` 在 `import torch` 前检测 GPU，旧卡设 `CUDA_VISIBLE_DEVICES=""`，T4 直通
-- **Git pull 而非 clone**：处理 Kaggle web Re-run 时目录残留
-- **Wandb**：用户在 Kaggle → Add-ons → Secrets 加 `WANDB_API_KEY`，`kernel.py` 自动读取
-- **数据**：优先 Kaggle Dataset 挂载，否则 torchvision 自动下载（CIFAR-10 ~30s）
-- **调参**：改 `configs/default.yaml` → `git push && kaggle kernels push` → wandb 看结果 → 下一轮
+- **Script kernel** 优于 notebook（CLI 日志实时可查）
+- **数据**：上传为 Kaggle Dataset 挂载，避免每轮下载（CIFAR-10 170MB 上传一次 → 秒加载）
+- **WANDB_API_KEY**：通过私有 Kaggle Dataset 挂载，Script kernel 不支持 `kaggle_secrets` 模块
+- **Git pull 而非 clone**：处理 Kaggle Re-run 时目录残留
+- **P100 自动降级 CPU**：`kernel.py` 在 `import torch` 前检测 GPU 型号
+- **num_workers**：CPU 训练设 0-2，GPU 训练设 6-8 避免数据加载瓶颈
+- **调参**：改 `configs/xxx.yaml` → `git push && kaggle kernels push` → wandb 看结果 → 下一轮
 
 详细指南见 [`references/kaggle-workflow.md`](references/kaggle-workflow.md)。
 

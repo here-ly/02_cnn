@@ -1,85 +1,132 @@
 # Kaggle 远程训练完整指南
 
-## 前置准备（一次）
+## 硬件规格
 
-```bash
-pip install kaggle
-# 从 https://www.kaggle.com/settings/account → Create New Token
-# 将 kaggle.json 放到 ~/.kaggle/
+| 资源 | 规格 | 说明 |
+|------|------|------|
+| GPU T4×2 | 2× Tesla T4, 16GB/卡, SM 7.5 | PyTorch 2.10+ cu128 原生支持 |
+| GPU P100 | Tesla P100, 12GB, SM 6.0 | PyTorch 2.10 不支持，需降级 CPU |
+| CPU | Intel Xeon @ 2.00GHz, 4核8线程 | 服务器级，CIFAR-10 可纯 CPU 跑 |
+| RAM | 30GB | - |
+| 免费配额 | 30h/week GPU | 每周一 UTC 重置 |
 
-# GitHub CLI（推荐，可选）
-winget install GitHub.cli  # 或 chocolatey: choco install gh
-gh auth login
+## T4 锁卡
+
+Kaggle GPU 是**随机分配**的。Settings → Accelerator → **GPU T4 x2** → 点一次 Run，之后 `kaggle kernels push` 会保留该选择。但无法 100% 保证，高峰期可能降级 P100。
+
+**kernel.py 内置保护**：
+```python
+# import torch 之前检测 GPU
+r = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], ...)
+if "P100" in r.stdout or "K80" in r.stdout:  # SM < 7.0
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""   # 降级 CPU
 ```
 
-## 项目初始化
+## 数据集策略
 
-每个想推送 Kaggle 的项目需要两个文件：
+**方案对比**：
 
-- `kernel.py` — 训练入口脚本，负责 clone/pull、GPU 检测、数据准备、wandb 注入、启动训练
-- `kernel-metadata.json` — Kaggle kernel 元数据
+| 方案 | 速度 | 可靠性 | 适用 |
+|------|------|--------|------|
+| Kaggle Dataset 挂载 | 秒级（文件复制） | ★★★★★ | 推荐长期使用 |
+| torchvision 自动下载 | ~30s (CIFAR-10) | ★★★★ | 首次快速验证 |
+| 私有 Dataset 传 key | 秒级（读文本） | ★★★★★ | WANDB_API_KEY 等 |
 
-模板见 [`templates/shared/kernel.py`](../templates/shared/kernel.py) 和 [`templates/shared/kernel-metadata.json`](../templates/shared/kernel-metadata.json)。
-
-## 日常工作流
-
+**创建自己的数据集**：
 ```bash
-# 本地改代码
-git add -A && git commit -m "xxx" && git push
+# 1. 准备数据目录（含 dataset-metadata.json）
+mkdir cifar10-dataset
+cp cifar-10-batches-py/* cifar10-dataset/
 
-# 推送到 Kaggle
+# 2. 上传
+kaggle datasets create -p cifar10-dataset --dir-mode zip
+
+# 3. 在 kernel-metadata.json 中引用
+"dataset_sources": ["herely/your-dataset"]
+```
+
+## WANDB_API_KEY
+
+**Script kernel 不支持 `kaggle_secrets` 模块**（`ConnectionError`）。唯一可靠方案：**私有 Kaggle Dataset**。
+
+```
+# 创建私有 dataset 存放 key
+echo "your_wandb_key" > wandb_api_key.txt
+kaggle datasets create -p . --dir-mode zip
+# → herely/wandb-key (private)
+
+# kernel-metadata.json
+"dataset_sources": ["herely/wandb-key"]
+
+# kernel.py 读取
+with open("/kaggle/input/wandb-key/wandb_api_key.txt") as f:
+    os.environ["WANDB_API_KEY"] = f.read().strip()
+```
+
+## Wandb 加速
+
+**Online 模式每 epoch 上传日志 (~3-5s)**，100 epoch 浪费 5-8 分钟。
+
+**Offline 模式**：本地记录，训练完一次性上传：
+```yaml
+# configs/wandb.yaml
+mode: "offline"
+```
+```bash
+# 训练结束后
+wandb sync ./wandb/offline-run-*
+```
+
+**Kernel.py 中设置**（在 pip install wandb 之后）：
+```python
+import wandb
+wandb.login(key=os.environ["WANDB_API_KEY"])
+```
+
+## GUI vs CLI
+
+| 操作 | CLI (`kaggle kernels push`) | GUI (网页 Run) |
+|------|---------------------------|----------------|
+| 代码更新 | `git push && kaggle kernels push` | 网页编辑器 |
+| 数据集挂载 | `dataset_sources` 自动 | 右侧 Add Data 手动添加 |
+| GPU 选择 | 继承上次设置 | Settings → Accelerator |
+| 日志查看 | `kaggle kernels logs` | 网页 Logs tab |
+| Wandb key | 挂载私有 dataset | 同左，或 Add-ons → Secrets |
+
+**GUI 运行前检查清单**：
+- [ ] Settings → Internet ON
+- [ ] Settings → Accelerator → GPU T4 x2
+- [ ] Add Data → `herely/{project}-data`
+- [ ] Add Data → `herely/wandb-key` (私有)
+
+## 快速 PS1 命令
+
+```powershell
+# 查看状态
+kaggle kernels status herely/cifar10-cnn-train2
+
+# 实时日志（script kernel 有效）
+kaggle kernels logs herely/cifar10-cnn-train2
+
+# 修改配置 + 推送
+git add configs/kaggle_full.yaml; git commit -m "tune params"; git push
 kaggle kernels push -p .
 
-# 查看状态
-kaggle kernels status 用户名/项目名
+# 下载 checkpoint
+kaggle kernels output herely/cifar10-cnn-train2 -p ./outputs/
 
-# 查看实时日志（仅 script 类型 kernel 有效）
-kaggle kernels logs 用户名/项目名
-
-# 下载产物（checkpoint、图片等）
-kaggle kernels output 用户名/项目名 -p ./outputs/
+# 同步 wandb 离线日志
+wandb sync ./wandb/offline-run-*
 ```
-
-## GPU 选型
-
-| GPU | SM | Kaggle 免费池 | PyTorch 2.10 兼容 |
-|-----|-----|------------|-----------------|
-| T4 x2 | 7.5 | 需手动锁 | ✅ 原生支持 |
-| P100 | 6.0 | 默认分配 | ❌ 需 CPU 降级 |
-
-**锁定 T4**：在 Kaggle web 页面 → Settings → Accelerator → GPU T4 x2 → 手动 Run 一次。之后 `kaggle kernels push` 会保留该设置。
-
-**P100 降级**：`kernel.py` 模板已内置 nvidia-smi 检测，P100 自动设 `CUDA_VISIBLE_DEVICES=""` 降级 CPU，不会 crash。
-
-## Script vs Notebook
-
-| | Script | Notebook |
-|------|--------|----------|
-| CLI 日志 (`kaggle kernels logs`) | ✅ 实时 | ❌ 不可靠 |
-| 网页交互编辑 | ❌ | ✅ |
-| 进程稳定性 | ✅ 一个进程到底 | ❌ 可能重启 |
-| **推荐用途** | **正式训练** | 交互实验 |
-
-## Wandb 集成
-
-1. Kaggle Secrets：在 kernel 页面 → Add-ons → Secrets → 添加 `WANDB_API_KEY`
-2. `kernel.py` 中 `os.environ.get("WANDB_API_KEY")` 会自动读取
-3. `scripts/train.py` 中已有 `wandb.init()`，无需额外代码
-
-## 数据策略
-
-按优先级：
-1. **Kaggle Dataset 挂载**（最快，0s）：上传数据为 Kaggle Dataset，在 `dataset_sources` 中引用，`kernel.py` 从 `/kaggle/input/` 复制到 `./data/`
-2. **torchvision 自动下载**（次选，~30s）：CIFAR-10/MNIST 等标准数据集，`download=True` 自动从源站下载
-3. **上传提取好的文件**（推荐长期）：把 `.bin` 文件直接上传为 dataset，避免 tar.gz 解压
 
 ## 常见坑
 
 | 问题 | 原因 | 解决 |
 |------|------|------|
-| `destination path already exists` | 网页 Re-run 时目录未清理 | `kernel.py` 用 `git pull` 代替 `git clone` |
-| P100 `no kernel image` 错误 | PyTorch 2.10 不支持 SM 6.0 | `kernel.py` 内置 nvidia-smi 检测 + CPU 降级 |
-| CIFAR-10 下载 5min+ | Kaggle 到 cs.toronto.edu 慢 | 上传为 Kaggle Dataset 或接受 30s |
-| Wandb 不记录 | API key 未设置 | Kaggle Secrets 中加 `WANDB_API_KEY` |
-| `git clone` 分支不存在 | 本地 `master` vs 远程 `main` | 统一用 `main`；`kernel.py` 指定分支名 |
-| `.gitignore` 吃掉 `src/data/` | 根级 `data/` 匹配了 `src/data/` | 改为 `/data/` |
+| P100 `no kernel image` | SM 6.0 不兼容 PyTorch 2.10 | kernel.py nvidia-smi 检测 + CPU 降级 |
+| Wandb key 读不到 | Script kernel 无 `kaggle_secrets` | 私有 Kaggle Dataset 挂载 |
+| 数据集不挂载 | `dataset_sources` 只在 CLI push 生效 | GUI 需手动 Add Data |
+| GPU 利用率 20% | CPU 数据加载瓶颈 | `num_workers: 6-8` |
+| Epoch 10s 但计算 1.5s | Wandb online 同步开销 | 切 `mode: offline` |
+| `git clone` 失败 | Re-run 时目录残留 | `git pull` fallback |
+| `.gitignore` 误伤 src | `data/` 匹配 `src/data/` | 改为 `/data/` |

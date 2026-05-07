@@ -1,11 +1,16 @@
-# Kaggle Git Clone entry point — template
-import os, sys, subprocess, shutil, tarfile
+# Kaggle Git Clone entry point
+import os, sys, subprocess, shutil, warnings
+warnings.filterwarnings("ignore")
 
+# ====== CONFIGURATION (edit these) ======
 REPO_URL = "https://github.com/用户名/仓库.git"
 BRANCH = "main"
 WORKDIR = "/kaggle/working/repo"
+PROJECT_DATA_SLUG = "用户名/project-data"       # Kaggle dataset slug
+WANDB_KEY_SLUG = "用户名/wandb-key"             # private dataset with API key
+# ========================================
 
-# ====== 1. Git Clone（已存在则 pull） ======
+# 1. Git Clone（已存在则 pull）
 if os.path.isdir(WORKDIR):
     print("Repo exists, pulling latest ...")
     subprocess.run(["git", "-C", WORKDIR, "fetch", "--depth", "1", "origin", BRANCH], check=False)
@@ -16,7 +21,7 @@ else:
 os.chdir(WORKDIR)
 sys.path.insert(0, WORKDIR)
 
-# ====== 2. GPU 兼容（P100/K80/K40/M60 降级 CPU） ======
+# 2. GPU 兼容（P100/K80/K40/M60 → CPU）
 def _check_gpu():
     try:
         r = subprocess.run(
@@ -41,36 +46,60 @@ elif gpu_status == "gpu":
 else:
     print("No GPU detected, using CPU.")
 
-# ====== 3. 数据准备（优先 Kaggle Dataset，否则自动下载） ======
-# 列出你引用的 Kaggle dataset 挂载路径
-DATA_PATHS = ["/kaggle/input/your-dataset"]
+# 3. WANDB_API_KEY（从私有 Kaggle Dataset 读取）
+key = os.environ.get("WANDB_API_KEY")
+if not key:
+    key_file = "/kaggle/input/wandb-key/wandb_api_key.txt"
+    if os.path.isfile(key_file):
+        with open(key_file, "r") as f:
+            key = f.read().strip()
+        if key:
+            os.environ["WANDB_API_KEY"] = key
+            print("WANDB_API_KEY loaded from private dataset")
+    if not key:
+        try:
+            from kaggle_secrets import UserSecretsClient
+            _val = UserSecretsClient().get_secret("WANDB_API_KEY")
+            if _val:
+                key = str(_val).strip()
+                os.environ["WANDB_API_KEY"] = key
+                print("WANDB_API_KEY loaded from Kaggle Secrets")
+        except Exception:
+            pass
+if not key:
+    print("WARNING: No WANDB_API_KEY found — wandb logging disabled")
 
-for ds_path in DATA_PATHS:
-    if os.path.isdir(ds_path):
-        os.makedirs("data", exist_ok=True)
-        for fname in os.listdir(ds_path):
-            src = os.path.join(ds_path, fname)
-            if os.path.isfile(src) and fname.endswith(".tar.gz"):
-                shutil.copy2(src, os.path.join("data", fname))
-                with tarfile.open(os.path.join("data", fname), "r:gz") as tf:
+# 4. 项目数据（从 Kaggle Dataset 挂载复制到 ./data/）
+DS_DIR = "/kaggle/input/" + PROJECT_DATA_SLUG.split("/")[-1]
+if os.path.isdir(DS_DIR):
+    os.makedirs("data", exist_ok=True)
+    for fname in os.listdir(DS_DIR):
+        src = os.path.join(DS_DIR, fname)
+        dst = os.path.join("data", fname)
+        if os.path.isfile(src):
+            if fname.endswith(".tar.gz"):
+                import tarfile
+                shutil.copy2(src, dst)
+                with tarfile.open(dst, "r:gz") as tf:
                     tf.extractall("data")
-            elif os.path.isdir(src):
-                shutil.copytree(src, os.path.join("data", fname), dirs_exist_ok=True)
-            else:
-                shutil.copy2(src, os.path.join("data", fname))
-        print(f"Data loaded from {ds_path}")
-        break
+            elif not os.path.exists(dst):
+                shutil.copy2(src, dst)
+        elif os.path.isdir(src):
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+    print(f"Data loaded from {DS_DIR}")
 else:
-    print("No Kaggle dataset found, will auto-download if needed.")
+    print(f"Dataset {PROJECT_DATA_SLUG} not mounted, will auto-download if needed.")
 
-# ====== 4. Wandb（从 Kaggle Secrets 读取 API Key） ======
-# 用户在 Kaggle → Add-ons → Secrets 添加 WANDB_API_KEY
-if not os.environ.get("WANDB_API_KEY"):
-    print("WARNING: WANDB_API_KEY not set. Add it in Kaggle → Add-ons → Secrets")
-
+# 5. 依赖安装
 print("Installing dependencies ...")
 subprocess.run([sys.executable, "-m", "pip", "install", "wandb", "--quiet"], check=False)
+if os.environ.get("WANDB_API_KEY"):
+    try:
+        import wandb
+        wandb.login(key=os.environ["WANDB_API_KEY"])
+    except Exception:
+        pass
 
-# ====== 5. 启动训练 ======
+# 6. 启动训练
 print(f"Running training ...")
-os.system(f"{sys.executable} scripts/train.py --config configs/default.yaml")
+os.system(f"{sys.executable} scripts/train.py --config configs/kaggle_full.yaml")
