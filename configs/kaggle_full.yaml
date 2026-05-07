@@ -1,0 +1,45 @@
+# Kaggle CPU 100 epoch 完整训练
+data:
+  batch_size: 256
+  num_workers: 2
+  use_augmentation: true
+  test_mode: false
+  test:
+    train_subset_size: 10000
+    test_subset_size: 2000
+
+model:
+  type: "SimpleCNN"
+  input_channels: 3
+  input_size: 32
+  num_classes: 10
+  conv_channels: [32, 64, 128]
+  conv_kernels: [3, 3, 3]
+  conv_paddings: [1, 1, 1]
+  pool_size: 2
+  fc_hidden: 256
+
+optim:
+  name: "adam"
+  lr: 0.0003
+  lr_multiplier: 1
+  betas: [0.9, 0.99]
+  eps: 1.0e-6
+  weight_decay: 0.0
+
+train:
+  epochs: 100
+  log_interval: 100
+  save_interval: 10
+  save_heatmaps: false
+  scheduler:
+    type: "ReduceLROnPlateau"
+    factor: 0.5
+    patience: 4
+    min_lr: 1.0e-7
+
+seed: 42
+
+output:
+  checkpoint_dir: "./outputs/checkpoints"
+  log_dir: "./outputs/logs"

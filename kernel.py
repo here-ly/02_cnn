@@ -79,4 +79,4 @@ print("Installing dependencies ...")
 subprocess.run([sys.executable, "-m", "pip", "install", "wandb", "--quiet"], check=False)
 
 print(f"Running training in {WORKDIR} ...")
-os.system(f"{sys.executable} scripts/train.py --config configs/kaggle.yaml")
+os.system(f"{sys.executable} scripts/train.py --config configs/kaggle_full.yaml")
