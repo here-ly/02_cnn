@@ -197,53 +197,27 @@ notebooks/*.py          src/                    scripts/train.py
 6. **查看**：wandb dashboard 对比实验
 7. **必含**：项目根目录必须有 `METHODOLOGY.md`（模板见 [`references/methodology-template.md`](references/methodology-template.md)）
 
-### Kaggle 远程训练（Git Clone 方案）
+### Kaggle 远程训练
 
-项目需包含两个文件：
+项目需两个文件：[`templates/shared/kernel.py`](templates/shared/kernel.py) + [`templates/shared/kernel-metadata.json`](templates/shared/kernel-metadata.json)。
 
-**`kernel-metadata.json`**：
-```json
-{
-  "id": "用户名/项目名",
-  "code_file": "kernel.py",
-  "language": "python",
-  "kernel_type": "script",
-  "is_private": false,
-  "enable_gpu": true,
-  "enable_internet": true
-}
-```
-
-**`kernel.py`**（Kaggle 入口，薄壳脚本）：
-```python
-import os, sys, subprocess
-
-REPO_URL = "https://github.com/用户名/仓库.git"
-WORKDIR = "/kaggle/working/repo"
-
-subprocess.run(["git", "clone", "-b", "main", "--depth", "1", REPO_URL, WORKDIR])
-os.chdir(WORKDIR)
-sys.path.insert(0, WORKDIR)
-
-# pip install 额外依赖（Kaggle 自带 torch/torchvision）
-# subprocess.run([sys.executable, "-m", "pip", "install", "wandb", "--quiet"])
-
-os.system(f"{sys.executable} scripts/train.py --config configs/default.yaml")
-```
-
-工作流：
+**快速命令**：
 ```bash
-git push                                        # 1. 推送代码到 GitHub
-kaggle kernels push -p .                        # 2. 推送 kernel 到 Kaggle
-kaggle kernels status 用户名/项目名               # 3. 查看状态
-kaggle kernels output 用户名/项目名 -p ./outputs  # 4. 下载输出
+git push && kaggle kernels push -p .              # 推送
+kaggle kernels status 用户名/项目名                 # 状态
+kaggle kernels logs 用户名/项目名                    # 实时日志
+kaggle kernels output 用户名/项目名 -p ./outputs/    # 下载产物
 ```
 
-约定：
-- **日常测试用 CPU**（`enable_gpu: false`），秒启动，无安装延迟
-- **正式训练开 GPU**（`enable_gpu: true`），P100 需 `pip install cu118 torch`
-- Kaggle 自带 `torch`，不要在 `kernel.py` 里多装
-- CIFAR-10/ImageNet 等标准数据集直接从 `torchvision.datasets` 下载，不用上传
+**关键约定**：
+- **Script kernel** 优于 notebook（前者 CLI 日志实时可查，后者不可靠）
+- **P100 自动降级 CPU**：`kernel.py` 用 `nvidia-smi` 在 `import torch` 前检测 GPU，旧卡设 `CUDA_VISIBLE_DEVICES=""`，T4 直通
+- **Git pull 而非 clone**：处理 Kaggle web Re-run 时目录残留
+- **Wandb**：用户在 Kaggle → Add-ons → Secrets 加 `WANDB_API_KEY`，`kernel.py` 自动读取
+- **数据**：优先 Kaggle Dataset 挂载，否则 torchvision 自动下载（CIFAR-10 ~30s）
+- **调参**：改 `configs/default.yaml` → `git push && kaggle kernels push` → wandb 看结果 → 下一轮
+
+详细指南见 [`references/kaggle-workflow.md`](references/kaggle-workflow.md)。
 
 ---
 
@@ -270,9 +244,10 @@ python -m pytest tests/ -v
 | [`templates/rl/network_cnn.py`](templates/rl/network_cnn.py)               | CNNQNetwork 实现                    |
 | [`templates/dl/default.yaml`](templates/dl/default.yaml)                   | DL 配置示例                           |
 | [`templates/rl/default.yaml`](templates/rl/default.yaml)                   | RL 配置示例                           |
-| [`templates/shared/`](templates/shared/)                                   | 共享工具（timer/seed/device/collector） |
+| [`templates/shared/`](templates/shared/)                                   | 共享工具（timer/seed/device/collector/kernel） |
 | [`notebooks/`](notebooks/)                                                 | Notebook 模板及检查 cell 参考            |
 | [`references/conventions.md`](references/conventions.md)                   | 配置驱动设计详细规约                        |
 | [`references/wandb-metrics.md`](references/wandb-metrics.md)               | Wandb 监控指标全表                      |
 | [`references/rl-pilot.md`](references/rl-pilot.md)                         | RL Pilot 预检流程                     |
 | [`references/methodology-template.md`](references/methodology-template.md) | METHODOLOGY.md 模板                 |
+| [`references/kaggle-workflow.md`](references/kaggle-workflow.md)           | Kaggle 远程训练完整指南（GPU/数据/wandb/排坑） |
