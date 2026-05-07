@@ -32,25 +32,19 @@ if _needs_cu118():
     print("P100/K80 detected — falling back to CPU.")
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-# ====== CIFAR-10 数据（从 Kaggle Dataset 或自动下载） ======
-for ds_path in ["/kaggle/input/cifar10-extracted", "/kaggle/input/cifar10", "/kaggle/input/cifar10-data"]:
-    if os.path.isdir(ds_path):
-        os.makedirs("data", exist_ok=True)
-        for fname in os.listdir(ds_path):
-            src = os.path.join(ds_path, fname)
-            if os.path.isfile(src) and fname.endswith(".tar.gz"):
-                shutil.copy2(src, os.path.join("data", fname))
-                with tarfile.open(os.path.join("data", fname), "r:gz") as tf:
-                    tf.extractall("data")
-                print(f"CIFAR-10 extracted from {ds_path}")
-            elif os.path.isdir(src):
-                shutil.copytree(src, os.path.join("data", fname), dirs_exist_ok=True)
-            else:
-                shutil.copy2(src, os.path.join("data", fname))
-        print(f"CIFAR-10 data ready from {ds_path}")
-        break
+# ====== CIFAR-10 数据（Kaggle Dataset 挂载，避免下载） ======
+DS_DIR = "/kaggle/input/cifar10-extracted"
+if os.path.isdir(DS_DIR):
+    target = "data/cifar-10-batches-py"
+    os.makedirs(target, exist_ok=True)
+    for fname in os.listdir(DS_DIR):
+        src = os.path.join(DS_DIR, fname)
+        dst = os.path.join(target, fname)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            shutil.copy2(src, dst)
+    print(f"CIFAR-10 files ready ({len(os.listdir(target))} files)")
 else:
-    print("No Kaggle dataset found, CIFAR-10 will download automatically (~30s)")
+    print("Dataset not mounted, CIFAR-10 will download automatically (~30s)")
 
 # ====== Wandb API Key（Kaggle Secrets 自动注入为环境变量） ======
 if not os.environ.get("WANDB_API_KEY"):
