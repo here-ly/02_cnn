@@ -52,13 +52,13 @@ try:
     from kaggle_secrets import UserSecretsClient
     user_secrets = UserSecretsClient()
     secret = user_secrets.get_secret("WANDB_API_KEY")
-    if secret:
-        os.environ["WANDB_API_KEY"] = secret
+    if secret and len(str(secret).strip()) > 10:
+        os.environ["WANDB_API_KEY"] = str(secret).strip()
         print("WANDB_API_KEY loaded from Kaggle Secrets")
     else:
-        print("WARNING: WANDB_API_KEY is empty in Kaggle Secrets")
-except Exception:
-    print("WARNING: Failed to load WANDB_API_KEY from Kaggle Secrets")
+        print(f"WARNING: WANDB_API_KEY empty or too short (len={len(str(secret)) if secret else 0})")
+except Exception as e:
+    print(f"WARNING: Failed to load WANDB_API_KEY from Kaggle Secrets: {type(e).__name__}: {e}")
 
 # ====== 依赖 ======
 print("Installing dependencies ...")
