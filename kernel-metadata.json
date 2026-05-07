@@ -1,6 +1,6 @@
 {
-  "id": "herely/cifar10-cnn-cli",
-  "title": "cifar10-cnn-train",
+"id": "herely/cifar10-cnn-train2",
+"title": "cifar10-cnn-train2",
   "code_file": "kernel.py",
   "language": "python",
   "kernel_type": "script",
