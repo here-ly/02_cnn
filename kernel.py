@@ -78,8 +78,5 @@ if not key:
 print("Installing dependencies ...")
 subprocess.run([sys.executable, "-m", "pip", "install", "wandb", "--quiet"], check=False)
 
-# Wandb offline 模式加速（训练完再 wandb sync）
-os.environ["WANDB_MODE"] = "offline"
-
 print(f"Running training in {WORKDIR} ...")
 os.system(f"{sys.executable} scripts/train.py --config configs/kaggle_full.yaml")

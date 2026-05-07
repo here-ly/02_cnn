@@ -67,34 +67,60 @@ with open("/kaggle/input/wandb-key/wandb_api_key.txt") as f:
 
 **Online 模式每 epoch 上传日志 (~3-5s)**，100 epoch 浪费 5-8 分钟。
 
-**Offline 模式**：本地记录，训练完一次性上传：
+**Offline 模式**：本地记录，训练完一次性上传。**通过 yaml 控制，不硬编码**：
 ```yaml
-# configs/wandb.yaml
-mode: "offline"
+# configs/kaggle_full.yaml
+wandb:
+  mode: "offline"   # 或 "online"
 ```
 ```bash
-# 训练结束后
+# 训练结束后一次性上传
 wandb sync ./wandb/offline-run-*
 ```
 
-**Kernel.py 中设置**（在 pip install wandb 之后）：
-```python
-import wandb
-wandb.login(key=os.environ["WANDB_API_KEY"])
+`scripts/train.py` 会合并主 config 的 `wandb` 字段到 `configs/wandb.yaml`，主 config 优先级更高。
+
+## PS1 快速改参 + 推送
+
+```powershell
+# 修改参数并推送
+.\scripts\kaggle.ps1 -Lr 0.001 -Epochs 50 -BatchSize 128 -WandbMode online
+
+# 只查看当前参数
+.\scripts\kaggle.ps1 -Show
+
+# 只改配置不 push
+.\scripts\kaggle.ps1 -Lr 0.0005 -NoPush
+
+# 只 push 不改参数
+.\scripts\kaggle.ps1 -PushOnly
 ```
+
+脚本会自动：
+1. 更新 `configs/kaggle_full.yaml` 中的指定字段
+2. `git add && git commit && git push`
+3. 打印 GUI 操作清单（Internet/GPU/数据集挂载）
 
 ## GUI vs CLI
 
-| 操作 | CLI (`kaggle kernels push`) | GUI (网页 Run) |
-|------|---------------------------|----------------|
-| 代码更新 | `git push && kaggle kernels push` | 网页编辑器 |
-| 数据集挂载 | `dataset_sources` 自动 | 右侧 Add Data 手动添加 |
-| GPU 选择 | 继承上次设置 | Settings → Accelerator |
-| 日志查看 | `kaggle kernels logs` | 网页 Logs tab |
-| Wandb key | 挂载私有 dataset | 同左，或 Add-ons → Secrets |
+| 操作 | CLI (`kaggle kernels push`) | GUI (网页 Run) | 推荐 |
+|------|---------------------------|----------------|------|
+| 代码更新 | `git push && kaggle kernels push` | 网页编辑器 | CLI |
+| 参数修改 | 编辑 yaml → PS1 推送 | 编辑 yaml 文件 | PS1 |
+| GPU 选择 | 继承上次设置 | Settings → Accelerator | **GUI 必选** |
+| 数据集挂载 | `dataset_sources` 自动 | Add Data 手动添加 | CLI 自动，GUI 手动 |
+| Internet | `enable_internet: true` | Settings → Internet ON | CLI 自动 |
+| 日志查看 | `kaggle kernels logs` | 网页 Logs tab | CLI 实时 |
 
-**GUI 运行前检查清单**：
-- [ ] Settings → Internet ON
+**推荐工作流**：
+1. `.\scripts\kaggle.ps1 -Lr 0.001 -Epochs 100`   ← CLI 改参+推送
+2. 打开 Kaggle 网页 → 选 GPU T4 x2 → 挂载数据集 → Run  ← GUI 操作
+3. Wandb 看曲线 → 调参 → 重复
+
+## Kaggle GUI 挂载清单
+
+每次 GUI Run 前确保：
+- [ ] Settings → Internet → ON
 - [ ] Settings → Accelerator → GPU T4 x2
 - [ ] Add Data → `herely/{project}-data`
 - [ ] Add Data → `herely/wandb-key` (私有)

@@ -199,53 +199,47 @@ notebooks/*.py          src/                    scripts/train.py
 
 ### Kaggle 远程训练
 
-项目需两个文件：[`templates/shared/kernel.py`](templates/shared/kernel.py) + [`templates/shared/kernel-metadata.json`](templates/shared/kernel-metadata.json)。
+GPU 锁定必须在 GUI 操作，**工作流：CLI 改参数 + push → GUI 选 GPU 跑**。
 
-**硬件规格**：
+**硬件**：
 
 | 资源 | 规格 |
 |------|------|
-| GPU (T4×2) | 2× Tesla T4, 每卡 16GB VRAM, SM 7.5, 总计 32GB |
-| GPU (P100) | Tesla P100, 12GB VRAM, SM 6.0, PyTorch 2.10 不兼容 |
-| CPU | Intel Xeon @ 2.00GHz, 4 核 8 线程 |
-| RAM | 30GB |
+| GPU T4×2 | 2× Tesla T4, 16GB/卡, SM 7.5, 总计 32GB VRAM |
+| GPU P100 | SM 6.0, PyTorch 2.10 不兼容 → kernel.py 自动降级 CPU |
+| CPU | Intel Xeon @ 2.00GHz, 4核8线程, 30GB RAM |
 
-**T4 锁卡**：Kaggle GPU 随机分配 T4 或 P100，**Settings → Accelerator → GPU T4 x2 → Run** 可锁定 T4。`kernel.py` 内置 nvidia-smi 检测,遇到 P100 自动降级 CPU。
+**一键推送**（改参数+git push+GUI指南）：
 
-**GUI 需要挂载的数据集**：
+```powershell
+.\scripts\kaggle.ps1 -Lr 0.0003 -Epochs 100 -WandbMode offline
+.\scripts\kaggle.ps1 -Show    # 查看当前参数
+.\scripts\kaggle.ps1 -NoPush  # 只改参数不push
+```
 
-| 数据集 | 用途 | 挂载后路径 |
-|--------|------|-----------|
-| `herely/{project}-data` | 训练/测试数据 | `/kaggle/input/{project}-data/` |
-| `herely/wandb-key` (私有) | WANDB_API_KEY | `/kaggle/input/wandb-key/` |
+**GUI 挂载清单**（Settings → Internet ON → Accelerator → GPU T4 x2，然后 Add Data）：
 
-GUI 操作：右侧栏 **Add Data** → 搜索数据集名 → 添加。**Settings 里 Internet 必须打开**。
+| 数据集 | 挂载后路径 | 用途 |
+|--------|-----------|------|
+| `herely/{project}-data` | `/kaggle/input/{slug}/` | 训练数据（秒加载，避免下载） |
+| `herely/wandb-key` (私有) | `/kaggle/input/wandb-key/` | WANDB_API_KEY |
 
-**Wandb 加速**：`mode: "offline"` 可避免每 epoch 上传日志的 3-5s 延迟，训练完再 `wandb sync` 上传：
+**参数控制**：所有配置在 `configs/kaggle_full.yaml`，代码零硬编码：
 ```yaml
-# configs/wandb.yaml
-mode: "offline"
+wandb:
+  mode: "offline"    # 每epoch快3-5s，训练完 wandb sync 上传
+data:
+  num_workers: 2     # CPU 用 2；T4 GPU 改 8
 ```
-```bash
-wandb sync ./wandb/offline-run-*     # 训练结束后一次性上传
-```
+
+详细指南见 [`references/kaggle-workflow.md`](references/kaggle-workflow.md)。
 
 **快速命令**：
 ```bash
-git push && kaggle kernels push -p .              # 推送
+git push && kaggle kernels push -p .              # 纯CLI推送
 kaggle kernels status 用户名/项目名                 # 状态
 kaggle kernels logs 用户名/项目名                    # 实时日志
 kaggle kernels output 用户名/项目名 -p ./outputs/    # 下载产物
-```
-
-**关键约定**：
-- **Script kernel** 优于 notebook（CLI 日志实时可查）
-- **数据**：上传为 Kaggle Dataset 挂载，避免每轮下载（CIFAR-10 170MB 上传一次 → 秒加载）
-- **WANDB_API_KEY**：通过私有 Kaggle Dataset 挂载，Script kernel 不支持 `kaggle_secrets` 模块
-- **Git pull 而非 clone**：处理 Kaggle Re-run 时目录残留
-- **P100 自动降级 CPU**：`kernel.py` 在 `import torch` 前检测 GPU 型号
-- **num_workers**：CPU 训练设 0-2，GPU 训练设 6-8 避免数据加载瓶颈
-- **调参**：改 `configs/xxx.yaml` → `git push && kaggle kernels push` → wandb 看结果 → 下一轮
 
 详细指南见 [`references/kaggle-workflow.md`](references/kaggle-workflow.md)。
 
@@ -275,6 +269,8 @@ python -m pytest tests/ -v
 | [`templates/dl/default.yaml`](templates/dl/default.yaml)                   | DL 配置示例                           |
 | [`templates/rl/default.yaml`](templates/rl/default.yaml)                   | RL 配置示例                           |
 | [`templates/shared/`](templates/shared/)                                   | 共享工具（timer/seed/device/collector/kernel） |
+| [`scripts/update_config.py`](scripts/update_config.py)                     | YAML 参数 CLI 更新工具                       |
+| [`scripts/kaggle.ps1`](scripts/kaggle.ps1)                                 | Kaggle 一键推送 + GUI 指南 PowerShell 脚本      |
 | [`notebooks/`](notebooks/)                                                 | Notebook 模板及检查 cell 参考            |
 | [`references/conventions.md`](references/conventions.md)                   | 配置驱动设计详细规约                        |
 | [`references/wandb-metrics.md`](references/wandb-metrics.md)               | Wandb 监控指标全表                      |

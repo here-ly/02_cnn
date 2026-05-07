@@ -33,6 +33,9 @@ def main(config_path: str, resume_from: str = None):
             import wandb
             with open(wandb_config_path, "r", encoding="utf-8") as f:
                 wandb_cfg = yaml.safe_load(f) or {}
+            # 允许主 config 的 wandb 字段覆盖 wandb.yaml（用于 kaggle 等不同环境）
+            if "wandb" in config:
+                wandb_cfg.update(config["wandb"])
             wandb_mode = wandb_cfg.get("mode", "offline")
             wandb.init(
                 project=wandb_cfg.get("project", "cifar10-cnn"),

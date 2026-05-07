@@ -1,7 +1,7 @@
 # Kaggle CPU 100 epoch 完整训练
 data:
   batch_size: 256
-  num_workers: 2
+  num_workers: 2               # CPU → 2; GPU T4 → 8（GUI 调了 GPU 记得改）
   use_augmentation: true
   test_mode: false
   test:
@@ -43,3 +43,6 @@ seed: 42
 output:
   checkpoint_dir: "./outputs/checkpoints"
   log_dir: "./outputs/logs"
+
+wandb:
+  mode: "offline"              # "offline" 每epoch节省3-5s; 训练完 wandb sync 上传
