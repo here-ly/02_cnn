@@ -7,7 +7,7 @@
   "is_private": false,
   "enable_gpu": true,
   "enable_internet": true,
-  "dataset_sources": ["herely/cifar10-extracted"],
+  "dataset_sources": ["herely/cifar10-extracted", "herely/wandb-key"],
   "competition_sources": [],
   "kernel_sources": [],
   "model_sources": []

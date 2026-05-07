@@ -47,32 +47,32 @@ if os.path.isdir(DS_DIR):
 else:
     print("Dataset not mounted, CIFAR-10 will download automatically (~30s)")
 
-# ====== Wandb API Key（尝试多种方式读取） ======
-# 方式1: 直接读环境变量（Notebook kernel 自动注入）
+# ====== Wandb API Key ======
+key = None
+# 方法1: 环境变量（Notebook kernel 自动注入）
 key = os.environ.get("WANDB_API_KEY")
-if key:
-    print("WANDB_API_KEY loaded from environment variable")
-else:
-    # 方式2: 通过 kaggle_secrets 模块（Script kernel 可能不支持）
+# 方法2: 挂载的私有 dataset（最可靠）
+if not key:
+    key_file = "/kaggle/input/wandb-key/wandb_api_key.txt"
+    if os.path.isfile(key_file):
+        with open(key_file, "r") as f:
+            key = f.read().strip()
+        if key:
+            os.environ["WANDB_API_KEY"] = key
+            print("WANDB_API_KEY loaded from private dataset")
+# 方法3: kaggle_secrets（仅 Notebook kernel 可用）
+if not key:
     try:
         from kaggle_secrets import UserSecretsClient
-        user_secrets = UserSecretsClient()
-        key = user_secrets.get_secret("WANDB_API_KEY")
-        if key and len(str(key).strip()) > 10:
-            key = str(key).strip()
+        _val = UserSecretsClient().get_secret("WANDB_API_KEY")
+        if _val:
+            key = str(_val).strip()
             os.environ["WANDB_API_KEY"] = key
             print("WANDB_API_KEY loaded from Kaggle Secrets")
-        else:
-            key = None
-            print(f"WARNING: WANDB_API_KEY empty or too short")
-    except Exception as e:
-        print(f"WARNING: kaggle_secrets failed: {type(e).__name__}: {e}")
-        # Debug: 列出所有环境变量看看有哪些可用的
-        env_keys = [k for k in sorted(os.environ.keys()) if "KAGGLE" in k.upper() or "WANDB" in k.upper() or "SECRET" in k.upper() or "KEY" in k.upper()]
-        print(f"  Relevant env vars found: {env_keys}")
-
+    except Exception:
+        pass
 if not key:
-    print("WARNING: No WANDB_API_KEY found, training will run without wandb logging")
+    print("WARNING: No WANDB_API_KEY found — wandb logging disabled")
 
 # ====== 依赖 ======
 print("Installing dependencies ...")
