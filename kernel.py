@@ -5,8 +5,13 @@ REPO_URL = "https://github.com/here-ly/02_cnn.git"
 BRANCH = "main"
 WORKDIR = "/kaggle/working/repo"
 
-print(f"Cloning {REPO_URL} ...")
-subprocess.run(["git", "clone", "-b", BRANCH, "--depth", "1", REPO_URL, WORKDIR], check=True)
+if os.path.isdir(WORKDIR):
+    print("Repo exists, pulling latest ...")
+    subprocess.run(["git", "-C", WORKDIR, "fetch", "--depth", "1", "origin", BRANCH], check=False)
+    subprocess.run(["git", "-C", WORKDIR, "reset", "--hard", f"origin/{BRANCH}"], check=True)
+else:
+    print(f"Cloning {REPO_URL} ...")
+    subprocess.run(["git", "clone", "-b", BRANCH, "--depth", "1", REPO_URL, WORKDIR], check=True)
 os.chdir(WORKDIR)
 sys.path.insert(0, WORKDIR)
 
