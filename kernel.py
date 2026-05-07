@@ -47,9 +47,18 @@ if os.path.isdir(DS_DIR):
 else:
     print("Dataset not mounted, CIFAR-10 will download automatically (~30s)")
 
-# ====== Wandb API Key（Kaggle Secrets 自动注入为环境变量） ======
-if not os.environ.get("WANDB_API_KEY"):
-    print("WARNING: WANDB_API_KEY not set. Add it in Kaggle → Add-ons → Secrets")
+# ====== Wandb API Key（Script kernel 需用 kaggle_secrets 主动读取） ======
+try:
+    from kaggle_secrets import UserSecretsClient
+    user_secrets = UserSecretsClient()
+    secret = user_secrets.get_secret("WANDB_API_KEY")
+    if secret:
+        os.environ["WANDB_API_KEY"] = secret
+        print("WANDB_API_KEY loaded from Kaggle Secrets")
+    else:
+        print("WARNING: WANDB_API_KEY is empty in Kaggle Secrets")
+except Exception:
+    print("WARNING: Failed to load WANDB_API_KEY from Kaggle Secrets")
 
 # ====== 依赖 ======
 print("Installing dependencies ...")
